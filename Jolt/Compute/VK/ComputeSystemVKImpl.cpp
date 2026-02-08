@@ -105,7 +105,7 @@ bool ComputeSystemVKImpl::Initialize(ComputeSystemResult &outResult)
 		}
 
 	// Setup debug messenger callback if the extension is supported
-	VkDebugUtilsMessengerCreateInfoEXT messenger_create_info = {};
+	std::cout<<"VKImpl.cpp:107"<<std::endl;VkDebugUtilsMessengerCreateInfoEXT messenger_create_info = {};
 	for (const VkExtensionProperties &ext : instance_extensions)
 		if (strcmp(VK_EXT_DEBUG_UTILS_EXTENSION_NAME, ext.extensionName) == 0)
 		{
@@ -119,29 +119,29 @@ bool ComputeSystemVKImpl::Initialize(ComputeSystemResult &outResult)
 		}
 #endif
 
-	instance_create_info.enabledExtensionCount = (uint32)required_instance_extensions.size();
-	instance_create_info.ppEnabledExtensionNames = required_instance_extensions.data();
-	if (VKFailed(vkCreateInstance(&instance_create_info, nullptr, &mInstance), outResult))
+	std::cout<<"VKImpl.cpp:121"<<std::endl;instance_create_info.enabledExtensionCount = (uint32)required_instance_extensions.size();
+	std::cout<<"VKImpl.cpp:122"<<std::endl;instance_create_info.ppEnabledExtensionNames = required_instance_extensions.data();
+	std::cout<<"VKImpl.cpp:123"<<std::endl;if (VKFailed(vkCreateInstance(&instance_create_info, nullptr, &mInstance), outResult))
 		return false;
 
 #ifdef JPH_DEBUG
 	// Finalize debug messenger callback
-	PFN_vkCreateDebugUtilsMessengerEXT vkCreateDebugUtilsMessengerEXT = (PFN_vkCreateDebugUtilsMessengerEXT)(std::uintptr_t)vkGetInstanceProcAddr(mInstance, "vkCreateDebugUtilsMessengerEXT");
+	std::cout<<"VKImpl.cpp:128"<<std::endl;PFN_vkCreateDebugUtilsMessengerEXT vkCreateDebugUtilsMessengerEXT = (PFN_vkCreateDebugUtilsMessengerEXT)(std::uintptr_t)vkGetInstanceProcAddr(mInstance, "vkCreateDebugUtilsMessengerEXT");
 	if (vkCreateDebugUtilsMessengerEXT != nullptr)
 		if (VKFailed(vkCreateDebugUtilsMessengerEXT(mInstance, &messenger_create_info, nullptr, &mDebugMessenger), outResult))
 			return false;
 #endif
 
 	// Notify that instance has been created
-	OnInstanceCreated();
+	std::cout<<"VKImpl.cpp:135"<<std::endl;OnInstanceCreated();
 
 	// Select device
 	uint32 device_count = 0;
-	if (VKFailed(vkEnumeratePhysicalDevices(mInstance, &device_count, nullptr), outResult))
+	std::cout<<"VKImpl.cpp:139"<<std::endl;if (VKFailed(vkEnumeratePhysicalDevices(mInstance, &device_count, nullptr), outResult))
 		return false;
-	Array<VkPhysicalDevice> devices;
+	std::cout<<"VKImpl.cpp:141"<<std::endl;Array<VkPhysicalDevice> devices;
 	devices.resize(device_count);
-	if (VKFailed(vkEnumeratePhysicalDevices(mInstance, &device_count, devices.data()), outResult))
+	std::cout<<"VKImpl.cpp:143"<<std::endl;if (VKFailed(vkEnumeratePhysicalDevices(mInstance, &device_count, devices.data()), outResult))
 		return false;
 	struct Device
 	{
@@ -153,12 +153,12 @@ bool ComputeSystemVKImpl::Initialize(ComputeSystemResult &outResult)
 		uint32					mComputeQueueIndex;
 		int						mScore;
 	};
-	Array<Device> available_devices;
+	std::cout<<"VKImpl.cpp:155"<<std::endl;Array<Device> available_devices;
 	for (VkPhysicalDevice device : devices)
 	{
 		// Get device properties
 		VkPhysicalDeviceProperties properties;
-		vkGetPhysicalDeviceProperties(device, &properties);
+		std::cout<<"VKImpl.cpp:160"<<std::endl;vkGetPhysicalDeviceProperties(device, &properties);
 
 		// Test if it is an appropriate type
 		int score = 0;
@@ -183,10 +183,10 @@ bool ComputeSystemVKImpl::Initialize(ComputeSystemResult &outResult)
 
 		// Check if the device supports all our required extensions
 		uint32 device_extension_count;
-		vkEnumerateDeviceExtensionProperties(device, nullptr, &device_extension_count, nullptr);
+		std::cout<<"VKImpl.cpp:185"<<std::endl;vkEnumerateDeviceExtensionProperties(device, nullptr, &device_extension_count, nullptr);
 		Array<VkExtensionProperties> available_extensions;
 		available_extensions.resize(device_extension_count);
-		vkEnumerateDeviceExtensionProperties(device, nullptr, &device_extension_count, available_extensions.data());
+		std::cout<<"VKImpl.cpp:188"<<std::endl;vkEnumerateDeviceExtensionProperties(device, nullptr, &device_extension_count, available_extensions.data());
 		int found_extensions = 0;
 		for (const char *required_device_extension : required_device_extensions)
 			for (const VkExtensionProperties &ext : available_extensions)
@@ -200,10 +200,10 @@ bool ComputeSystemVKImpl::Initialize(ComputeSystemResult &outResult)
 
 		// Find the right queues
 		uint32 queue_family_count = 0;
-		vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, nullptr);
+		std::cout<<"VKImpl.cpp:202"<<std::endl;vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, nullptr);
 		Array<VkQueueFamilyProperties> queue_families;
 		queue_families.resize(queue_family_count);
-		vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, queue_families.data());
+		std::cout<<"VKImpl.cpp:205"<<std::endl;vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, queue_families.data());
 		uint32 graphics_queue = ~uint32(0);
 		uint32 present_queue = ~uint32(0);
 		uint32 compute_queue = ~uint32(0);
@@ -232,9 +232,9 @@ bool ComputeSystemVKImpl::Initialize(ComputeSystemResult &outResult)
 			continue;
 
 		// Add the device
-		available_devices.push_back({ device, properties.deviceName, selected_format, graphics_queue, present_queue, compute_queue, score });
+		std::cout<<"VKImpl.cpp:234"<<std::endl;available_devices.push_back({ device, properties.deviceName, selected_format, graphics_queue, present_queue, compute_queue, score });
 	}
-	if (available_devices.empty())
+	std::cout<<"VKImpl.cpp:236"<<std::endl;if (available_devices.empty())
 	{
 		outResult.SetError("No suitable Vulkan device found");
 		return false;
@@ -247,7 +247,7 @@ bool ComputeSystemVKImpl::Initialize(ComputeSystemResult &outResult)
 	const Device &selected_device = available_devices[0];
 
 	// Create device
-	float queue_priority = 1.0f;
+	std::cout<<"VKImpl.cpp:249"<<std::endl;float queue_priority = 1.0f;
 	VkDeviceQueueCreateInfo queue_create_info[3] = {};
 	for (VkDeviceQueueCreateInfo &q : queue_create_info)
 	{
