@@ -48,39 +48,39 @@ ComputeSystemVKImpl::~ComputeSystemVKImpl()
 bool ComputeSystemVKImpl::Initialize(ComputeSystemResult &outResult)
 {
 	// Required instance extensions
-	printf("VKImpl.cpp:51\n");fflush(stdout);Array<const char *> required_instance_extensions;
-	printf("VKImpl.cpp:52\n");fflush(stdout);required_instance_extensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
-	printf("VKImpl.cpp:53\n");fflush(stdout);required_instance_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+	std::cout<<"VKImpl.cpp:51"<<std::endl;Array<const char *> required_instance_extensions;
+	std::cout<<"VKImpl.cpp:52"<<std::endl;required_instance_extensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
+	std::cout<<"VKImpl.cpp:53"<<std::endl;required_instance_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 #ifdef JPH_PLATFORM_MACOS
 	required_instance_extensions.push_back("VK_KHR_portability_enumeration");
 	required_instance_extensions.push_back("VK_KHR_get_physical_device_properties2");
 #endif
-        printf("VKImpl.cpp:58\n");fflush(stdout);GetInstanceExtensions(required_instance_extensions);
-        printf("VKImpl.cpp:59\n");fflush(stdout);
+        std::cout<<"VKImpl.cpp:58"<<std::endl;GetInstanceExtensions(required_instance_extensions);
+        std::cout<<"VKImpl.cpp:59"<<std::endl;
 	// Required device extensions
-	printf("VKImpl.cpp:61\n");fflush(stdout);Array<const char *> required_device_extensions;
-	printf("VKImpl.cpp:62\n");fflush(stdout);required_device_extensions.push_back(VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME);
+	std::cout<<"VKImpl.cpp:61"<<std::endl;Array<const char *> required_device_extensions;
+	std::cout<<"VKImpl.cpp:62"<<std::endl;required_device_extensions.push_back(VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME);
 #ifdef JPH_PLATFORM_MACOS
 	required_device_extensions.push_back("VK_KHR_portability_subset"); // VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME
 #endif
-	printf("VKImpl.cpp:66\n");fflush(stdout);GetDeviceExtensions(required_device_extensions);
-        printf("VKImpl.cpp:67\n");fflush(stdout);
+	std::cout<<"VKImpl.cpp:66"<<std::endl;GetDeviceExtensions(required_device_extensions);
+        std::cout<<"VKImpl.cpp:67"<<std::endl;
 	// Query supported instance extensions
-	printf("VKImpl.cpp:69\n");fflush(stdout);uint32 instance_extension_count = 0;
-	printf("VKImpl.cpp:70\n");fflush(stdout);if (VKFailed(vkEnumerateInstanceExtensionProperties(nullptr, &instance_extension_count, nullptr), outResult))
+	std::cout<<"VKImpl.cpp:69"<<std::endl;uint32 instance_extension_count = 0;
+	std::cout<<"VKImpl.cpp:70"<<std::endl;if (VKFailed(vkEnumerateInstanceExtensionProperties(nullptr, &instance_extension_count, nullptr), outResult))
 		return false;
-	printf("VKImpl.cpp:72\n");fflush(stdout);Array<VkExtensionProperties> instance_extensions;
-	printf("VKImpl.cpp:73\n");fflush(stdout);instance_extensions.resize(instance_extension_count);
-	printf("VKImpl.cpp:74\n");fflush(stdout);if (VKFailed(vkEnumerateInstanceExtensionProperties(nullptr, &instance_extension_count, instance_extensions.data()), outResult))
+	std::cout<<"VKImpl.cpp:72"<<std::endl;Array<VkExtensionProperties> instance_extensions;
+	std::cout<<"VKImpl.cpp:73"<<std::endl;instance_extensions.resize(instance_extension_count);
+	std::cout<<"VKImpl.cpp:74"<<std::endl;if (VKFailed(vkEnumerateInstanceExtensionProperties(nullptr, &instance_extension_count, instance_extensions.data()), outResult))
 		return false;
 
 	// Query supported validation layers
 	uint32 validation_layer_count;
-	printf("VKImpl.cpp:79\n");fflush(stdout);vkEnumerateInstanceLayerProperties(&validation_layer_count, nullptr);
-	printf("VKImpl.cpp:80\n");fflush(stdout);Array<VkLayerProperties> validation_layers(validation_layer_count);
-	printf("VKImpl.cpp:81\n");fflush(stdout);vkEnumerateInstanceLayerProperties(&validation_layer_count, validation_layers.data());
+	std::cout<<"VKImpl.cpp:79"<<std::endl;vkEnumerateInstanceLayerProperties(&validation_layer_count, nullptr);
+	std::cout<<"VKImpl.cpp:80"<<std::endl;Array<VkLayerProperties> validation_layers(validation_layer_count);
+	std::cout<<"VKImpl.cpp:81"<<std::endl;vkEnumerateInstanceLayerProperties(&validation_layer_count, validation_layers.data());
 
-	printf("VKImpl.cpp:83\n");fflush(stdout);VkApplicationInfo app_info = {};
+	std::cout<<"VKImpl.cpp:83"<<std::endl;VkApplicationInfo app_info = {};
 	app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 	app_info.apiVersion = VK_API_VERSION_1_1;
 
@@ -94,7 +94,7 @@ bool ComputeSystemVKImpl::Initialize(ComputeSystemResult &outResult)
 
 #ifdef JPH_DEBUG
 	// Enable validation layer if supported
-	printf("VKImpl.cpp:97\n");fflush(stdout);const char *desired_validation_layers[] = { "VK_LAYER_KHRONOS_validation" };
+	std::cout<<"VKImpl.cpp:97"<<std::endl;const char *desired_validation_layers[] = { "VK_LAYER_KHRONOS_validation" };
 	for (const VkLayerProperties &p : validation_layers)
 		if (strcmp(desired_validation_layers[0], p.layerName) == 0)
 		{
