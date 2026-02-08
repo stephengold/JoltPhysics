@@ -48,39 +48,39 @@ ComputeSystemVKImpl::~ComputeSystemVKImpl()
 bool ComputeSystemVKImpl::Initialize(ComputeSystemResult &outResult)
 {
 	// Required instance extensions
-	Array<const char *> required_instance_extensions;
-	required_instance_extensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
-	required_instance_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+	printf("VKImpl.cpp:51\n");fflush(stdout);Array<const char *> required_instance_extensions;
+	printf("VKImpl.cpp:52\n");fflush(stdout);required_instance_extensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
+	printf("VKImpl.cpp:53\n");fflush(stdout);required_instance_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 #ifdef JPH_PLATFORM_MACOS
 	required_instance_extensions.push_back("VK_KHR_portability_enumeration");
 	required_instance_extensions.push_back("VK_KHR_get_physical_device_properties2");
 #endif
-	GetInstanceExtensions(required_instance_extensions);
-
+        printf("VKImpl.cpp:58\n");fflush(stdout);GetInstanceExtensions(required_instance_extensions);
+        printf("VKImpl.cpp:59\n");fflush(stdout);
 	// Required device extensions
-	Array<const char *> required_device_extensions;
-	required_device_extensions.push_back(VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME);
+	printf("VKImpl.cpp:61\n");fflush(stdout);Array<const char *> required_device_extensions;
+	printf("VKImpl.cpp:62\n");fflush(stdout);required_device_extensions.push_back(VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME);
 #ifdef JPH_PLATFORM_MACOS
 	required_device_extensions.push_back("VK_KHR_portability_subset"); // VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME
 #endif
-	GetDeviceExtensions(required_device_extensions);
-
+	printf("VKImpl.cpp:66\n");fflush(stdout);GetDeviceExtensions(required_device_extensions);
+        printf("VKImpl.cpp:67\n");fflush(stdout);
 	// Query supported instance extensions
-	uint32 instance_extension_count = 0;
-	if (VKFailed(vkEnumerateInstanceExtensionProperties(nullptr, &instance_extension_count, nullptr), outResult))
+	printf("VKImpl.cpp:69\n");fflush(stdout);uint32 instance_extension_count = 0;
+	printf("VKImpl.cpp:70\n");fflush(stdout);if (VKFailed(vkEnumerateInstanceExtensionProperties(nullptr, &instance_extension_count, nullptr), outResult))
 		return false;
-	Array<VkExtensionProperties> instance_extensions;
-	instance_extensions.resize(instance_extension_count);
-	if (VKFailed(vkEnumerateInstanceExtensionProperties(nullptr, &instance_extension_count, instance_extensions.data()), outResult))
+	printf("VKImpl.cpp:72\n");fflush(stdout);Array<VkExtensionProperties> instance_extensions;
+	printf("VKImpl.cpp:73\n");fflush(stdout);instance_extensions.resize(instance_extension_count);
+	printf("VKImpl.cpp:74\n");fflush(stdout);if (VKFailed(vkEnumerateInstanceExtensionProperties(nullptr, &instance_extension_count, instance_extensions.data()), outResult))
 		return false;
 
 	// Query supported validation layers
 	uint32 validation_layer_count;
-	vkEnumerateInstanceLayerProperties(&validation_layer_count, nullptr);
-	Array<VkLayerProperties> validation_layers(validation_layer_count);
-	vkEnumerateInstanceLayerProperties(&validation_layer_count, validation_layers.data());
+	printf("VKImpl.cpp:79\n");fflush(stdout);vkEnumerateInstanceLayerProperties(&validation_layer_count, nullptr);
+	printf("VKImpl.cpp:80\n");fflush(stdout);Array<VkLayerProperties> validation_layers(validation_layer_count);
+	printf("VKImpl.cpp:81\n");fflush(stdout);vkEnumerateInstanceLayerProperties(&validation_layer_count, validation_layers.data());
 
-	VkApplicationInfo app_info = {};
+	printf("VKImpl.cpp:83\n");fflush(stdout);VkApplicationInfo app_info = {};
 	app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 	app_info.apiVersion = VK_API_VERSION_1_1;
 
@@ -94,7 +94,7 @@ bool ComputeSystemVKImpl::Initialize(ComputeSystemResult &outResult)
 
 #ifdef JPH_DEBUG
 	// Enable validation layer if supported
-	const char *desired_validation_layers[] = { "VK_LAYER_KHRONOS_validation" };
+	printf("VKImpl.cpp:97\n");fflush(stdout);const char *desired_validation_layers[] = { "VK_LAYER_KHRONOS_validation" };
 	for (const VkLayerProperties &p : validation_layers)
 		if (strcmp(desired_validation_layers[0], p.layerName) == 0)
 		{
