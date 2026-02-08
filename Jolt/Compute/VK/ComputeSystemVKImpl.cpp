@@ -8,6 +8,7 @@
 
 #include <Jolt/Compute/VK/ComputeSystemVKImpl.h>
 #include <Jolt/Core/QuickSort.h>
+#include <iostream>
 
 JPH_NAMESPACE_BEGIN
 
