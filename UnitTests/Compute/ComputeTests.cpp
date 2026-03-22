@@ -77,7 +77,7 @@ TEST_SUITE("ComputeTests")
 			char path[PATH_MAX];
 			CFStringGetCString(path_string, path, PATH_MAX, kCFStringEncodingUTF8);
 			CFRelease(path_string);
-    		String base_path = String(path) + "/Jolt/Shaders/";
+			String base_path = String(path) + "/Jolt/Shaders/";
 		#else
 			// On other platforms, start searching up from the application path
 			#ifdef JPH_PLATFORM_WINDOWS

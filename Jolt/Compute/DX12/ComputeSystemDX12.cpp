@@ -338,16 +338,16 @@ ComputeShaderResult ComputeSystemDX12::CreateComputeShader(const char *inName, u
 		case D3D_SIT_UAV_RWTYPED:
 		case D3D_SIT_UAV_RWSTRUCTURED:
 		case D3D_SIT_UAV_RWBYTEADDRESS:
-        case D3D_SIT_UAV_APPEND_STRUCTURED:
-        case D3D_SIT_UAV_CONSUME_STRUCTURED:
+		case D3D_SIT_UAV_APPEND_STRUCTURED:
+		case D3D_SIT_UAV_CONSUME_STRUCTURED:
 		case D3D_SIT_UAV_RWSTRUCTURED_WITH_COUNTER:
 			param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_UAV;
 			break;
 
-        case D3D_SIT_TBUFFER:
-        case D3D_SIT_TEXTURE:
-        case D3D_SIT_SAMPLER:
-        case D3D_SIT_RTACCELERATIONSTRUCTURE:
+		case D3D_SIT_TBUFFER:
+		case D3D_SIT_TEXTURE:
+		case D3D_SIT_SAMPLER:
+		case D3D_SIT_RTACCELERATIONSTRUCTURE:
 		case D3D_SIT_UAV_FEEDBACKTEXTURE:
 			JPH_ASSERT(false, "Unsupported shader input type");
 			continue;

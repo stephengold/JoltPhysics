@@ -119,7 +119,7 @@ public:
 	JPH_INLINE void				CalculateConstraintProperties(float inInvMass1, Mat44Arg inInvI1, Vec3Arg inR1PlusU, float inInvMass2, Mat44Arg inInvI2, Vec3Arg inR2, Vec3Arg inWorldSpaceAxis, float inBias = 0.0f)
 	{
 		JPH_ASSERT(inWorldSpaceAxis.IsNormalized(1.0e-5f));
-				
+
 		// Calculate inverse effective mass: K = J M^-1 J^T
 		float inv_effective_mass;
 
@@ -155,7 +155,7 @@ public:
 			}
 		}
 
-		if (inv_effective_mass== 0.0f)
+		if (inv_effective_mass == 0.0f)
 			this->Deactivate();
 		else
 		{
@@ -274,7 +274,7 @@ public:
 				case EMotionType::Dynamic:
 					mDD.CalculateConstraintProperties(inInvMass1, inv_i1, inR1PlusU, inInvMass2, inInvInertiaScale2 * inBody2.GetInverseInertia(), inR2, inWorldSpaceAxis, inBias);
 					return mDD.SolveVelocityConstraint(inBody1.GetMotionPropertiesUnchecked(), inInvMass1, inBody2.GetMotionPropertiesUnchecked(), inInvMass2, inWorldSpaceAxis, inMinLambda, inMaxLambda);
-	
+
 				case EMotionType::Kinematic:
 					mDK.CalculateConstraintProperties(inInvMass1, inv_i1, inR1PlusU, 0 /* Will not be used */, Mat44() /* Will not be used */, inR2, inWorldSpaceAxis, inBias);
 					return mDK.SolveVelocityConstraint(inBody1.GetMotionPropertiesUnchecked(), inInvMass1, inBody2.GetMotionPropertiesUnchecked(), inInvMass2, inWorldSpaceAxis, inMinLambda, inMaxLambda);
