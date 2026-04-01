@@ -122,7 +122,7 @@ class AxisConstraintPart
 			}
 			else
 			{
-				JPH_IF_DEBUG(Vec3::sNaN().StoreFloat3(&mR2xAxis);)
+				JPH_IF_DEBUG(Vec3::sNaN().StoreFloat3(&mInvI2_R2xAxis);)
 			}
 		}
 		else
