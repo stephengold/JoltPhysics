@@ -1206,6 +1206,13 @@ float Vec4::ReduceMax() const
 	return v.GetX();
 }
 
+float Vec4::ReduceSum() const
+{
+	Vec4 v = *this + Swizzle<SWIZZLE_Y, SWIZZLE_UNUSED, SWIZZLE_W, SWIZZLE_UNUSED>();
+	v += v.Swizzle<SWIZZLE_Z, SWIZZLE_UNUSED, SWIZZLE_UNUSED, SWIZZLE_UNUSED>();
+	return v.GetX();
+}
+
 void Vec4::SinCos(Vec4 &outSin, Vec4 &outCos) const
 {
 	// Implementation based on sinf.c from the cephes library, combines sinf and cosf in a single function, changes octants to quadrants and vectorizes it

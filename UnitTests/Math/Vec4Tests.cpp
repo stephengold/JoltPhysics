@@ -111,6 +111,15 @@ TEST_SUITE("Vec4Tests")
 		CHECK(v4.GetHighestComponentIndex() == 0);
 	}
 
+	TEST_CASE("TestVec4ReduceSum")
+	{
+		Vec4 v1(1, 6, 3, 8);
+		Vec4 v2(-5, 2, -7, 4);
+
+		CHECK(v1.ReduceSum() == 1 + 6 + 3 + 8);
+		CHECK(v2.ReduceSum() == -5 + 2 - 7 + 4);
+	}
+
 	TEST_CASE("TestVec4Clamp")
 	{
 		Vec4 v1(1, 2, 3, 4);
