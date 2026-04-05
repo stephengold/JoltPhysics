@@ -498,6 +498,9 @@ if (JPH_USE_DX12 OR JPH_USE_VK OR JPH_USE_MTL OR JPH_USE_CPU_COMPUTE)
 		${JOLT_PHYSICS_ROOT}/Shaders/TestCompute2.hlsl
 	)
 
+	# Ignore shader files for compilation, we'll compile them manually
+	set_source_files_properties(${JOLT_PHYSICS_SHADERS} PROPERTIES HEADER_FILE_ONLY ON)
+
 	set(JOLT_PHYSICS_SHADER_HEADERS
 		${JOLT_PHYSICS_ROOT}/Shaders/HairApplyDeltaTransformBindings.h
 		${JOLT_PHYSICS_ROOT}/Shaders/HairApplyGlobalPose.h
@@ -557,9 +560,6 @@ if (WIN32)
 	# Add natvis file
 	set(JOLT_PHYSICS_SRC_FILES ${JOLT_PHYSICS_SRC_FILES} ${JOLT_PHYSICS_ROOT}/Jolt.natvis)
 
-	# Set properties to compile shaders as compute shaders
-	set_source_files_properties(${JOLT_PHYSICS_SHADERS} PROPERTIES VS_SHADER_FLAGS "/WX /T cs_5_0")
-
 	# DirectX support
 	if (JPH_USE_DX12)
 		# DirectX source files
@@ -576,6 +576,41 @@ if (WIN32)
 			${JOLT_PHYSICS_ROOT}/Compute/DX12/ComputeShaderDX12.h
 			${JOLT_PHYSICS_ROOT}/Compute/DX12/IncludeDX12.h
 		)
+
+		# Compile HLSL shaders
+		find_program(DXC_COMPILER
+			NAMES dxc
+			HINTS
+				"$ENV{WindowsSdkVerBinPath}x64"
+				"C:/Program Files (x86)/Windows Kits/10/bin/${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION}/x64"
+			NO_DEFAULT_PATH)
+		if (NOT DXC_COMPILER)
+			MESSAGE("Application 'dxc' not found. Can't compile compute shaders. Some functionality will be unavailable.")
+		else()
+			foreach(SHADER ${JOLT_PHYSICS_SHADERS})
+				cmake_path(GET SHADER STEM SHADER_STEM) # Filename without extension
+				string(REPLACE ".hlsl" ".dxil" DXIL_SHADER ${SHADER})
+				add_custom_command(OUTPUT ${DXIL_SHADER}
+					COMMAND ${DXC_COMPILER} -E main -T cs_6_0 -I Jolt/Shaders -WX -O3 -all_resources_bound -Qembed_debug -Zi ${SHADER} -Fo ${DXIL_SHADER}
+					DEPENDS ${SHADER} ${JOLT_PHYSICS_SHADER_HEADERS} # Currently don't have a way to detect header dependencies, so making dependent on all
+					COMMENT "Compiling HLSL ${SHADER}")
+				list(APPEND JOLT_PHYSICS_DXIL_SHADERS ${DXIL_SHADER})
+			endforeach()
+
+			# Group intermediate files
+			source_group(Intermediate FILES ${JOLT_PHYSICS_DXIL_SHADERS})
+
+			# Find DX12 runtime DLLs, they live alongside dxc.exe
+			cmake_path(GET DXC_COMPILER PARENT_PATH DXC_BIN_DIR)
+			foreach(DLL dxcompiler.dll dxil.dll)
+				set(DLL_PATH "${DXC_BIN_DIR}/${DLL}")
+				if (EXISTS "${DLL_PATH}")
+					list(APPEND JPH_DX12_RUNTIME_DLLS "${DLL_PATH}")
+				else()
+					message(WARNING "DX12 runtime DLL not found: ${DLL_PATH}")
+				endif()
+			endforeach()
+		endif()
 	endif()
 else()
 	set(JPH_USE_DX12 OFF)
@@ -685,7 +720,7 @@ if (JPH_USE_VK)
 				# The glslc compiler has the following issues:
 				# - All buffers bind to slot 0. We don't want to manually specify registers so this requires going into the SPIRV code and patching it.
 				# - It automatically aligns float3 to 16 byte boundaries which wastes a lot of memory in structs. We only seem to be able to override this alignment when compiling a GLSL shader and not with HLSL.
-				COMMAND ${Vulkan_dxc_EXECUTABLE} -E main -T cs_6_0 -I Jolt/Shaders -WX -O3 -all_resources_bound ${SHADER} -spirv -fvk-use-dx-layout -Fo ${SPV_SHADER}
+				COMMAND ${Vulkan_dxc_EXECUTABLE} -E main -T cs_6_0 -I Jolt/Shaders -WX -O3 -all_resources_bound ${SHADER} -spirv -fvk-use-dx-layout -fspv-debug=vulkan-with-source -Fo ${SPV_SHADER}
 				DEPENDS ${SHADER} ${JOLT_PHYSICS_SHADER_HEADERS} # Currently don't have a way to detect header dependencies, so making dependent on all
 				COMMENT "Compiling Vulkan ${SHADER}")
 			list(APPEND JOLT_PHYSICS_SPV_SHADERS ${SPV_SHADER})
@@ -707,7 +742,7 @@ if (JPH_BUILD_SHARED_LIBS)
 else()
 	set(JPH_LIB_TYPE STATIC)
 endif()
-add_library(Jolt ${JPH_LIB_TYPE} ${JOLT_PHYSICS_SRC_FILES} ${JOLT_PHYSICS_SHADERS} ${JOLT_PHYSICS_SHADER_HEADERS} ${JOLT_PHYSICS_SPV_SHADERS} ${JOLT_PHYSICS_METAL_LIB})
+add_library(Jolt ${JPH_LIB_TYPE} ${JOLT_PHYSICS_SRC_FILES} ${JOLT_PHYSICS_SHADERS} ${JOLT_PHYSICS_SHADER_HEADERS} ${JOLT_PHYSICS_DXIL_SHADERS} ${JOLT_PHYSICS_SPV_SHADERS} ${JOLT_PHYSICS_METAL_LIB})
 add_library(Jolt::Jolt ALIAS Jolt)
 
 if (JPH_BUILD_SHARED_LIBS)
@@ -811,12 +846,6 @@ endif()
 if (JPH_USE_DX12)
 	target_compile_definitions(Jolt PUBLIC JPH_USE_DX12)
 	target_link_libraries(Jolt LINK_PUBLIC dxgi.lib d3d12.lib d3dcompiler.lib dxguid.lib)
-
-	# Use DXC compiler to compile shaders, when off falls back to FXC
-	if (JPH_USE_DXC)
-		target_compile_definitions(Jolt PUBLIC JPH_USE_DXC)
-		target_link_libraries(Jolt LINK_PUBLIC dxcompiler.lib)
-	endif()
 endif()
 
 # Compile against Vulkan

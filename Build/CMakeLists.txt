@@ -121,9 +121,6 @@ cmake_dependent_option(USE_STATIC_MSVC_RUNTIME_LIBRARY "Use the static MSVC runt
 # Option to compile with DirectX 12 compute
 option(JPH_USE_DX12 "Use DirectX" ON)
 
-# Use DXC compiler to compile shaders, when off falls back to FXC
-option(JPH_USE_DXC "Use DXC shader compiler" ON)
-
 # Option to compile with Vulkan compute
 option(JPH_USE_VK "Use Vulkan" ON)
 
@@ -475,5 +472,18 @@ if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
 				message("Cannot build JoltViewer because Vulkan/DirectX/Metal SDK is not available!")
 			endif()
 		endif()
+	endif()
+
+	# Copy DX12 runtime DLLs (dxcompiler.dll, dxil.dll) to the output directory of each application
+	if (JPH_USE_DX12 AND JPH_DX12_RUNTIME_DLLS)
+		foreach(TARGET_NAME Samples JoltViewer UnitTests)
+			if (TARGET ${TARGET_NAME})
+				add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
+					COMMAND ${CMAKE_COMMAND} -E copy_if_different
+						${JPH_DX12_RUNTIME_DLLS}
+						$<TARGET_FILE_DIR:${TARGET_NAME}>
+					COMMENT "Copying DX12 runtime DLLs to ${TARGET_NAME} output directory")
+			endif()
+		endforeach()
 	endif()
 endif()
