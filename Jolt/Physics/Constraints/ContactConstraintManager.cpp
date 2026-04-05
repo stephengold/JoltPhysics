@@ -1666,8 +1666,14 @@ bool ContactConstraintManager::sSolveVelocityConstraint(ContactConstraintBase &i
 	{
 		WorldContactPoint<Type1, Type2> &wcp = constraint.mContactPoints[i];
 
-		// Solve non penetration velocities
-		if (wcp.mNonPenetrationConstraint.SolveVelocityConstraint(linear_velocity1, angular_velocity1, linear_velocity2, angular_velocity2, constraint.mInvMass1, constraint.mInvMass2, ws_normal, 0.0f, FLT_MAX))
+		// Calculate impulse
+		float total_lambda = wcp.mNonPenetrationConstraint.SolveVelocityConstraintGetTotalLambda(linear_velocity1, angular_velocity1, linear_velocity2, angular_velocity2, ws_normal);
+
+		// Contact constraints can only push and not pull
+		total_lambda = max(total_lambda, 0.0f);
+
+		// Apply impulse
+		if (wcp.mNonPenetrationConstraint.SolveVelocityConstraintApplyLambda(linear_velocity1, angular_velocity1, linear_velocity2, angular_velocity2, constraint.mInvMass1, constraint.mInvMass2, ws_normal, total_lambda))
 			any_impulse_applied = true;
 	}
 
