@@ -721,7 +721,7 @@ void ContactConstraintManager::PrepareConstraintBuffer(PhysicsUpdateContext *inC
 }
 
 template <EMotionType Type1, EMotionType Type2>
-JPH_INLINE ContactConstraintManager::ContactConstraint<Type1, Type2> *ContactConstraintManager::CreateConstraint(Body &inBody1, Body &inBody2, uint64 inSortKey, Vec3Arg inWorldSpaceNormal, const ContactSettings &inSettings, uint32 inNumContactPoints, uint32 &outConstraintIdx)
+JPH_INLINE ContactConstraintManager::ContactConstraint<Type1, Type2> *ContactConstraintManager::CreateConstraint(bool &ioActivateAndLinkBodies, Body &inBody1, Body &inBody2, uint64 inSortKey, Vec3Arg inWorldSpaceNormal, const ContactSettings &inSettings, uint32 inNumContactPoints)
 {
 	// Calculate the size of this constraint
 	uint32 constraint_size = sizeof(ContactConstraint<Type1, Type2>) + (inNumContactPoints - 1) * sizeof(WorldContactPoint<Type1, Type2>);
@@ -729,14 +729,47 @@ JPH_INLINE ContactConstraintManager::ContactConstraint<Type1, Type2> *ContactCon
 
 	// Reserve space for constraint
 	uint64 constraint_idx_and_constraint_offset = mNumConstraintsAndNextConstraintOffset.fetch_add((uint64(constraint_size) << 32) + 1, memory_order_relaxed);
-	outConstraintIdx = uint32(constraint_idx_and_constraint_offset);
-	if (outConstraintIdx >= mMaxConstraints)
+	uint32 constraint_idx = uint32(constraint_idx_and_constraint_offset);
+	if (constraint_idx >= mMaxConstraints)
 		return nullptr;
+
+	bool body1_dynamic = inBody1.IsDynamic();
+	bool body2_dynamic = inBody2.IsDynamic();
+
+	if (ioActivateAndLinkBodies)
+	{
+		// Do this only once
+		ioActivateAndLinkBodies = false;
+
+		// Wake up sleeping bodies
+		BodyID body_ids[2];
+		int num_bodies = 0;
+		if (body1_dynamic && !inBody1.IsActive())
+			body_ids[num_bodies++] = inBody1.GetID();
+		if (body2_dynamic && !inBody2.IsActive())
+			body_ids[num_bodies++] = inBody2.GetID();
+		if (num_bodies > 0)
+			mUpdateContext->mBodyManager->ActivateBodies(body_ids, num_bodies);
+
+		// Link the two bodies only if both are dynamic. If one of them is static or kinematic they don't need to go into
+		// the same simulation island as a constraint cannot affect the velocity of a kinematic body.
+		if (body1_dynamic && body2_dynamic)
+			mUpdateContext->mIslandBuilder->LinkBodies(inBody1.GetIndexInActiveBodiesInternal(), inBody2.GetIndexInActiveBodiesInternal());
+	}
+
+	// Link the contact to the first dynamic body
+	if (body1_dynamic)
+		mUpdateContext->mIslandBuilder->LinkContact(constraint_idx, inBody1.GetIndexInActiveBodiesInternal());
+	else
+	{
+		JPH_ASSERT(body2_dynamic);
+		mUpdateContext->mIslandBuilder->LinkContact(constraint_idx, inBody2.GetIndexInActiveBodiesInternal());
+	}
 
 	// Store offset for constraint
 	uint32 constraint_offset = uint32(constraint_idx_and_constraint_offset >> 32);
 	JPH_ASSERT(constraint_offset + constraint_size < mMaxConstraints * cMaxConstraintSize);
-	mConstraintIdxToOffset[outConstraintIdx] = constraint_offset;
+	mConstraintIdxToOffset[constraint_idx] = constraint_offset;
 
 	// Construct constraint
 	ContactConstraint<Type1, Type2> *constraint = reinterpret_cast<ContactConstraint<Type1, Type2> *>(mConstraints + constraint_offset);
@@ -762,7 +795,7 @@ JPH_INLINE ContactConstraintManager::ContactConstraint<Type1, Type2> *ContactCon
 }
 
 template <EMotionType Type1, EMotionType Type2>
-void ContactConstraintManager::TemplatedGetContactsFromCache(ContactAllocator &ioContactAllocator, Body &inBody1, Body &inBody2, const CachedBodyPair &inCachedBodyPair, CachedBodyPair &outCachedBodyPair, bool &outConstraintCreated)
+void ContactConstraintManager::TemplatedGetContactsFromCache(ContactAllocator &ioContactAllocator, Body &inBody1, Body &inBody2, const CachedBodyPair &inCachedBodyPair, CachedBodyPair &outCachedBodyPair)
 {
 	// Get body transforms
 	RMat44 transform_body1 = inBody1.GetCenterOfMassTransform();
@@ -778,6 +811,7 @@ void ContactConstraintManager::TemplatedGetContactsFromCache(ContactAllocator &i
 	// Copy manifolds
 	uint32 output_handle = ManifoldMap::cInvalidHandle;
 	uint32 input_handle = inCachedBodyPair.mFirstCachedManifold;
+	bool link_bodies = true;
 	do
 	{
 		JPH_PROFILE("Add Constraint From Cached Manifold");
@@ -841,19 +875,14 @@ void ContactConstraintManager::TemplatedGetContactsFromCache(ContactAllocator &i
 				|| (Type2 == EMotionType::Dynamic && settings.mInvMassScale2 != 0.0f)))
 		{
 			// Create a new constraint
-			uint32 constraint_idx;
-			ContactConstraint<Type1, Type2> *constraint = CreateConstraint<Type1, Type2>(inBody1, inBody2, input_hash, world_space_normal, settings, output_cm->mNumContactPoints, constraint_idx);
+			ContactConstraint<Type1, Type2> *constraint = CreateConstraint<Type1, Type2>(link_bodies, inBody1, inBody2, input_hash, world_space_normal, settings, output_cm->mNumContactPoints);
 			if (constraint == nullptr)
 			{
 				ioContactAllocator.mErrors |= EPhysicsUpdateError::ContactConstraintsFull;
 				break;
 			}
-			outConstraintCreated = true;
 
 			JPH_DET_LOG("GetContactsFromCache: id1: " << inBody1.GetID() << " id2: " << inBody2.GetID() << " key: " << constraint->mSortKey);
-
-			// Notify island builder
-			mUpdateContext->mIslandBuilder->LinkContact(constraint_idx, inBody1.GetIndexInActiveBodiesInternal(), inBody2.GetIndexInActiveBodiesInternal());
 
 			// Calculate scaled mass and inertia
 			Mat44 inv_i1;
@@ -921,10 +950,9 @@ void ContactConstraintManager::TemplatedGetContactsFromCache(ContactAllocator &i
 	outCachedBodyPair.mFirstCachedManifold = output_handle;
 }
 
-void ContactConstraintManager::GetContactsFromCache(ContactAllocator &ioContactAllocator, Body &inBody1, Body &inBody2, bool &outPairHandled, bool &outConstraintCreated)
+void ContactConstraintManager::GetContactsFromCache(ContactAllocator &ioContactAllocator, Body &inBody1, Body &inBody2, bool &outPairHandled)
 {
-	// Start with nothing found and not handled
-	outConstraintCreated = false;
+	// Start with not handled
 	outPairHandled = false;
 
 	// Swap bodies so that body 1 id < body 2 id
@@ -990,7 +1018,7 @@ void ContactConstraintManager::GetContactsFromCache(ContactAllocator &ioContactA
 
 	// Build dispatch table
 	// Note: Non-dynamic vs non-dynamic can happen in this case due to one body being a sensor, so we need to have an extended table here
-	using DispatchFunc = void (ContactConstraintManager::*)(ContactAllocator &, Body &, Body &, const CachedBodyPair &, CachedBodyPair &, bool &);
+	using DispatchFunc = void (ContactConstraintManager::*)(ContactAllocator &, Body &, Body &, const CachedBodyPair &, CachedBodyPair &);
 	static const DispatchFunc table[3][3] = {
 		{
 			nullptr, // Static vs static doesn't exist
@@ -1010,7 +1038,7 @@ void ContactConstraintManager::GetContactsFromCache(ContactAllocator &ioContactA
 	};
 
 	// Dispatch to the correct templated form
-	(this->*table[(int)body1->GetMotionType()][(int)body2->GetMotionType()])(ioContactAllocator, *body1, *body2, input_cbp, *output_cbp, outConstraintCreated);
+	(this->*table[(int)body1->GetMotionType()][(int)body2->GetMotionType()])(ioContactAllocator, *body1, *body2, input_cbp, *output_cbp);
 }
 
 ContactConstraintManager::BodyPairHandle ContactConstraintManager::AddBodyPair(ContactAllocator &ioContactAllocator, const Body &inBody1, const Body &inBody2)
@@ -1054,7 +1082,7 @@ ContactConstraintManager::BodyPairHandle ContactConstraintManager::AddBodyPair(C
 }
 
 template <EMotionType Type1, EMotionType Type2>
-bool ContactConstraintManager::TemplatedAddContactConstraint(ContactAllocator &ioContactAllocator, BodyPairHandle inBodyPairHandle, Body &inBody1, Body &inBody2, const ContactManifold &inManifold)
+void ContactConstraintManager::TemplatedAddContactConstraint(ContactAllocator &ioContactAllocator, bool &ioActivateAndLinkBodies, BodyPairHandle inBodyPairHandle, Body &inBody1, Body &inBody2, const ContactManifold &inManifold)
 {
 	// Calculate hash
 	SubShapeIDPair key { inBody1.GetID(), inManifold.mSubShapeID1, inBody2.GetID(), inManifold.mSubShapeID2 };
@@ -1071,7 +1099,7 @@ bool ContactConstraintManager::TemplatedAddContactConstraint(ContactAllocator &i
 	ManifoldCache &write_cache = mCache[mCacheWriteIdx];
 	MKeyValue *new_manifold_kv = write_cache.Create(ioContactAllocator, key, key_hash, num_contact_points);
 	if (new_manifold_kv == nullptr)
-		return false; // Out of cache space
+		return; // Out of cache space
 	CachedManifold *new_manifold = &new_manifold_kv->GetValue();
 
 	// Transform the world space normal to the space of body 2 (this is usually the static body)
@@ -1117,8 +1145,6 @@ bool ContactConstraintManager::TemplatedAddContactConstraint(ContactAllocator &i
 	// Get inverse transform for body 1
 	RMat44 inverse_transform_body1 = inBody1.GetInverseCenterOfMassTransform();
 
-	bool contact_constraint_created = false;
-
 	// If one of the bodies is a sensor, don't actually create the constraint
 	JPH_ASSERT(settings.mIsSensor || !(inBody1.IsSensor() || inBody2.IsSensor()), "Sensors cannot be converted into regular bodies by a contact callback!");
 	if (!settings.mIsSensor
@@ -1126,8 +1152,7 @@ bool ContactConstraintManager::TemplatedAddContactConstraint(ContactAllocator &i
 			|| (Type2 == EMotionType::Dynamic && settings.mInvMassScale2 != 0.0f)))
 	{
 		// Create a new constraint
-		uint32 constraint_idx;
-		ContactConstraint<Type1, Type2> *constraint = CreateConstraint<Type1, Type2>(inBody1, inBody2, key_hash, inManifold.mWorldSpaceNormal, settings, num_contact_points, constraint_idx);
+		ContactConstraint<Type1, Type2> *constraint = CreateConstraint<Type1, Type2>(ioActivateAndLinkBodies, inBody1, inBody2, key_hash, inManifold.mWorldSpaceNormal, settings, num_contact_points);
 		if (constraint == nullptr)
 		{
 			ioContactAllocator.mErrors |= EPhysicsUpdateError::ContactConstraintsFull;
@@ -1135,14 +1160,10 @@ bool ContactConstraintManager::TemplatedAddContactConstraint(ContactAllocator &i
 			// Manifold has been created already, we're not filling it in, so we need to reset the contact number of points.
 			// Note that we don't hook it up to the body pair cache so that it won't be used as a cache during the next simulation.
 			new_manifold->mNumContactPoints = 0;
-			return false;
+			return;
 		}
-		contact_constraint_created = true;
 
 		JPH_DET_LOG("AddContactConstraint: id1: " << constraint->mBody1->GetID() << " id2: " << constraint->mBody2->GetID() << " key: " << constraint->mSortKey);
-
-		// Notify island builder
-		mUpdateContext->mIslandBuilder->LinkContact(constraint_idx, inBody1.GetIndexInActiveBodiesInternal(), inBody2.GetIndexInActiveBodiesInternal());
 
 		// Get time step and gravity
 		float delta_time = mUpdateContext->mStepDeltaTime;
@@ -1251,12 +1272,9 @@ bool ContactConstraintManager::TemplatedAddContactConstraint(ContactAllocator &i
 	CachedBodyPair *cbp = reinterpret_cast<CachedBodyPair *>(inBodyPairHandle);
 	new_manifold->mNextWithSameBodyPair = cbp->mFirstCachedManifold;
 	cbp->mFirstCachedManifold = write_cache.ToHandle(new_manifold_kv);
-
-	// A contact constraint was added
-	return contact_constraint_created;
 }
 
-bool ContactConstraintManager::AddContactConstraint(ContactAllocator &ioContactAllocator, BodyPairHandle inBodyPairHandle, Body &inBody1, Body &inBody2, const ContactManifold &inManifold)
+void ContactConstraintManager::AddContactConstraint(ContactAllocator &ioContactAllocator, bool &ioActivateAndLinkBodies, BodyPairHandle inBodyPairHandle, Body &inBody1, Body &inBody2, const ContactManifold &inManifold)
 {
 	JPH_PROFILE_FUNCTION();
 
@@ -1286,7 +1304,7 @@ bool ContactConstraintManager::AddContactConstraint(ContactAllocator &ioContactA
 
 	// Build dispatch table
 	// Note: Non-dynamic vs non-dynamic can happen in this case due to one body being a sensor, so we need to have an extended table here
-	using DispatchFunc = bool (ContactConstraintManager::*)(ContactAllocator &, BodyPairHandle, Body &, Body &, const ContactManifold &);
+	using DispatchFunc = void (ContactConstraintManager::*)(ContactAllocator &, bool &, BodyPairHandle, Body &, Body &, const ContactManifold &);
 	static const DispatchFunc table[3][3] = {
 		{
 			nullptr, // Static vs static doesn't exist
@@ -1306,7 +1324,7 @@ bool ContactConstraintManager::AddContactConstraint(ContactAllocator &ioContactA
 	};
 
 	// Dispatch to the correct templated form
-	return (this->*table[(int)body1->GetMotionType()][(int)body2->GetMotionType()])(ioContactAllocator, inBodyPairHandle, *body1, *body2, *manifold);
+	return (this->*table[(int)body1->GetMotionType()][(int)body2->GetMotionType()])(ioContactAllocator, ioActivateAndLinkBodies, inBodyPairHandle, *body1, *body2, *manifold);
 }
 
 void ContactConstraintManager::OnCCDContactAdded(ContactAllocator &ioContactAllocator, const Body &inBody1, const Body &inBody2, const ContactManifold &inManifold, ContactSettings &outSettings)

@@ -95,8 +95,7 @@ public:
 
 	/// Check if the contact points from the previous frame are reusable and if so copy them.
 	/// When the cache was usable and the pair has been handled: outPairHandled = true.
-	/// When a contact constraint was produced: outConstraintCreated = true.
-	void						GetContactsFromCache(ContactAllocator &ioContactAllocator, Body &inBody1, Body &inBody2, bool &outPairHandled, bool &outConstraintCreated);
+	void						GetContactsFromCache(ContactAllocator &ioContactAllocator, Body &inBody1, Body &inBody2, bool &outPairHandled);
 
 	/// Handle used to keep track of the current body pair
 	using BodyPairHandle = void *;
@@ -108,11 +107,11 @@ public:
 	/// Add a contact constraint for this frame.
 	///
 	/// @param ioContactAllocator The allocator that reserves memory for the contacts
+	/// @param ioActivateAndLinkBodies When true, this function attempts to activate and link the bodies and then sets ioActivateAndLinkBodies to false so that it only happens once
 	/// @param inBodyPair The handle for the contact cache for this body pair
 	/// @param inBody1 The first body that is colliding
 	/// @param inBody2 The second body that is colliding
 	/// @param inManifold The manifold that describes the collision
-	/// @return true if a contact constraint was created (can be false in the case of a sensor)
 	///
 	/// This is using the approach described in 'Modeling and Solving Constraints' by Erin Catto presented at GDC 2009 (and later years with slight modifications).
 	/// We're using the formulas from slide 50 - 53 combined.
@@ -146,7 +145,7 @@ public:
 	/// r1, r2 = contact point relative to center of mass of body 1 and body 2 (r1 = p1 - x1, r2 = p2 - x2).
 	/// v1, v2 = (linear velocity, angular velocity): 6 vectors containing linear and angular velocity for body 1 and 2.
 	/// M = mass matrix, a diagonal matrix of the mass and inertia with diagonal [m1, I1, m2, I2].
-	bool						AddContactConstraint(ContactAllocator &ioContactAllocator, BodyPairHandle inBodyPair, Body &inBody1, Body &inBody2, const ContactManifold &inManifold);
+	void						AddContactConstraint(ContactAllocator &ioContactAllocator, bool &ioActivateAndLinkBodies, BodyPairHandle inBodyPair, Body &inBody1, Body &inBody2, const ContactManifold &inManifold);
 
 	/// Finalizes the contact cache, the contact cache that was generated during the calls to AddContactConstraint in this update
 	/// will be used from now on to read from. After finalizing the contact cache, the contact removed callbacks will be called.
@@ -498,15 +497,15 @@ public:
 private:
 	/// Create a new contact constraint
 	template <EMotionType Type1, EMotionType Type2>
-	JPH_INLINE ContactConstraint<Type1, Type2> *CreateConstraint(Body &inBody1, Body &inBody2, uint64 inSortKey, Vec3Arg inWorldSpaceNormal, const ContactSettings &inSettings, uint32 inNumContactPoints, uint32 &outConstraintIdx);
+	JPH_INLINE ContactConstraint<Type1, Type2> *CreateConstraint(bool &ioActivateAndLinkBodies, Body &inBody1, Body &inBody2, uint64 inSortKey, Vec3Arg inWorldSpaceNormal, const ContactSettings &inSettings, uint32 inNumContactPoints);
 
 	/// Internal helper function to add a contact constraint from the cache. Templated to the motion type to reduce the amount of branches and calculations.
 	template <EMotionType Type1, EMotionType Type2>
-	void						TemplatedGetContactsFromCache(ContactAllocator &ioContactAllocator, Body &inBody1, Body &inBody2, const CachedBodyPair &inCachedBodyPair, CachedBodyPair &outCachedBodyPair, bool &outConstraintCreated);
+	void						TemplatedGetContactsFromCache(ContactAllocator &ioContactAllocator, Body &inBody1, Body &inBody2, const CachedBodyPair &inCachedBodyPair, CachedBodyPair &outCachedBodyPair);
 
 	/// Internal helper function to add a contact constraint. Templated to the motion type to reduce the amount of branches and calculations.
 	template <EMotionType Type1, EMotionType Type2>
-	bool						TemplatedAddContactConstraint(ContactAllocator &ioContactAllocator, BodyPairHandle inBodyPairHandle, Body &inBody1, Body &inBody2, const ContactManifold &inManifold);
+	void						TemplatedAddContactConstraint(ContactAllocator &ioContactAllocator, bool &ioActivateAndLinkBodies, BodyPairHandle inBodyPairHandle, Body &inBody1, Body &inBody2, const ContactManifold &inManifold);
 
 	/// Read the velocities from the motion properties
 	template <EMotionType Type1, EMotionType Type2>

@@ -220,6 +220,7 @@ EPhysicsUpdateError PhysicsSystem::Update(float inDeltaTime, int inCollisionStep
 	context.mPhysicsSystem = this;
 	context.mJobSystem = inJobSystem;
 	context.mBarrier = inJobSystem->CreateBarrier();
+	context.mBodyManager = &mBodyManager;
 	context.mIslandBuilder = &mIslandBuilder;
 	context.mStepDeltaTime = step_delta_time;
 	context.mWarmStartImpulseRatio = warm_start_impulse_ratio;
@@ -1074,9 +1075,9 @@ void PhysicsSystem::ProcessBodyPair(ContactAllocator &ioContactAllocator, const 
 		std::swap(body1, body2);
 
 	// Check if the contact points from the previous frame are reusable and if so copy them
-	bool pair_handled = false, constraint_created = false;
+	bool pair_handled = false;
 	if (mPhysicsSettings.mUseBodyPairContactCache && !(body1->IsCollisionCacheInvalid() || body2->IsCollisionCacheInvalid()))
-		mContactManager.GetContactsFromCache(ioContactAllocator, *body1, *body2, pair_handled, constraint_created);
+		mContactManager.GetContactsFromCache(ioContactAllocator, *body1, *body2, pair_handled);
 
 	// If the cache hasn't handled this body pair do actual collision detection
 	if (!pair_handled)
@@ -1225,6 +1226,7 @@ void PhysicsSystem::ProcessBodyPair(ContactAllocator &ioContactAllocator, const 
 			mSimCollideBodyVsBody(*body1, *body2, transform1, transform2, settings, collector, shape_filter.GetFilter());
 
 			// Add the contacts
+			bool link_and_activate_bodies = true;
 			for (ContactManifold &manifold : collector.mManifolds)
 			{
 				// Normalize the normal (is a sum of all normals from merged manifolds)
@@ -1235,7 +1237,7 @@ void PhysicsSystem::ProcessBodyPair(ContactAllocator &ioContactAllocator, const 
 					PruneContactPoints(manifold.mWorldSpaceNormal, manifold.mRelativeContactPointsOn1, manifold.mRelativeContactPointsOn2 JPH_IF_DEBUG_RENDERER(, manifold.mBaseOffset));
 
 				// Actually add the contact points to the manager
-				constraint_created |= mContactManager.AddContactConstraint(ioContactAllocator, body_pair_handle, *body1, *body2, manifold);
+				mContactManager.AddContactConstraint(ioContactAllocator, link_and_activate_bodies, body_pair_handle, *body1, *body2, manifold);
 			}
 		}
 		else
@@ -1307,7 +1309,7 @@ void PhysicsSystem::ProcessBodyPair(ContactAllocator &ioContactAllocator, const 
 					manifold.mSubShapeID2 = inResult.mSubShapeID2;
 
 					// Actually add the contact points to the manager
-					mConstraintCreated |= mSystem->mContactManager.AddContactConstraint(mContactAllocator, mBodyPairHandle, *mBody1, *mBody2, manifold);
+					mSystem->mContactManager.AddContactConstraint(mContactAllocator, mLinkAndActivateBodies, mBodyPairHandle, *mBody1, *mBody2, manifold);
 				}
 
 				PhysicsSystem *		mSystem;
@@ -1316,14 +1318,12 @@ void PhysicsSystem::ProcessBodyPair(ContactAllocator &ioContactAllocator, const 
 				Body *				mBody2;
 				ContactConstraintManager::BodyPairHandle mBodyPairHandle;
 				bool				mValidateBodyPair = true;
-				bool				mConstraintCreated = false;
+				bool				mLinkAndActivateBodies = true;
 			};
 			NonReductionCollideShapeCollector collector(this, ioContactAllocator, body1, body2, body_pair_handle);
 
 			// Perform collision detection between the two shapes
 			mSimCollideBodyVsBody(*body1, *body2, transform1, transform2, settings, collector, shape_filter.GetFilter());
-
-			constraint_created = collector.mConstraintCreated;
 		}
 
 	#ifdef JPH_TRACK_SIMULATION_STATS
@@ -1343,23 +1343,6 @@ void PhysicsSystem::ProcessBodyPair(ContactAllocator &ioContactAllocator, const 
 			body1->GetMotionProperties()->GetSimulationStats().mNarrowPhaseTicks.fetch_add(num_ticks, memory_order_relaxed);
 		}
 	#endif
-	}
-
-	// If a contact constraint was created, we need to do some extra work
-	if (constraint_created)
-	{
-		// Wake up sleeping bodies
-		BodyID body_ids[2];
-		int num_bodies = 0;
-		if (body1->IsDynamic() && !body1->IsActive())
-			body_ids[num_bodies++] = body1->GetID();
-		if (body2->IsDynamic() && !body2->IsActive())
-			body_ids[num_bodies++] = body2->GetID();
-		if (num_bodies > 0)
-			mBodyManager.ActivateBodies(body_ids, num_bodies);
-
-		// Link the two bodies
-		mIslandBuilder.LinkBodies(body1->GetIndexInActiveBodiesInternal(), body2->GetIndexInActiveBodiesInternal());
 	}
 }
 
