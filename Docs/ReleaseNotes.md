@@ -31,6 +31,7 @@ For breaking API changes see [this document](https://github.com/jrouwe/JoltPhysi
 * When using `Body::AddForce` to apply gravity, bodies could gain extra energy during elastic collisions. We now cancel added forces in the direction of the contact normal if the body starts in collision to negate this energy gain.
 * Made `MoveKinematic` more accurate when rotating a body by a very small angle.
 * Kinematic bodies were assigned to the same island as bodies that were constrained to / in contact with them. This led to larger simulation islands and impacted performance.
+* Fixed contact callbacks for body with motion quality LinearCast vs a soft body. Previously, the contacts would be reported accidentally through the regular ContactListener. Now they're properly reported through the SoftBodyContactListener.
 
 ## v5.5.0
 
