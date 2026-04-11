@@ -21,7 +21,7 @@ public:
 	JPH_DECLARE_RTTI_VIRTUAL(JPH_EXPORT, ComputeSystemDX12)
 
 	/// Initialize / shutdown
-	void							Initialize(ID3D12Device *inDevice);
+	bool							Initialize(ID3D12Device *inDevice, ComputeSystemResult &outResult);
 	void							Shutdown();
 
 	// See: ComputeSystem
@@ -37,7 +37,7 @@ public:
 
 private:
 	ComPtr<ID3D12Device>			mDevice;
-	FARPROC							mDxcCreateInstanceFn;
+	FARPROC							mDxcCreateInstanceFn = nullptr;
 };
 
 JPH_NAMESPACE_END
